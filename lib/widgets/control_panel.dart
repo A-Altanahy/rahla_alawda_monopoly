@@ -1,405 +1,603 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import '../models/team.dart';
 import '../services/game_service.dart';
+import '../services/image_service.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
-class ControlPanel extends StatefulWidget {
+class ControlPanel extends StatelessWidget {
   const ControlPanel({super.key});
 
-  @override
-  State<ControlPanel> createState() => _ControlPanelState();
-}
-
-class _ControlPanelState extends State<ControlPanel> {
-  
   @override
   Widget build(BuildContext context) {
     return Consumer<GameService>(
       builder: (context, gameService, child) {
         return Container(
-          padding: const EdgeInsets.all(16),
+          height: 200,
+          margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.blue.shade50,
+                Colors.purple.shade50,
+                Colors.pink.shade50,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.3),
-                spreadRadius: 2,
-                blurRadius: 5,
-                offset: const Offset(0, 3),
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'رحلة العودة - مونوبولي',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.brown,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              
-              Text(
-                'الفرق:',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              
-              // Team Circles
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 16,
-                runSpacing: 16,
-                children: gameService.teams.map((team) {
-                  return GestureDetector(
-                    onTap: () => _showTeamMenu(context, team),
-                    child: TeamCircle(
-                      team: team,
-                      currentSquare: gameService.getSquare(team.position),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Icon(Icons.control_camera, color: Colors.blue.shade600, size: 24),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'لوحة التحكم',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  );
-                }).toList(),
-              ),
-              
-              const SizedBox(height: 20),
-              
-              // Reset Button
-              ElevatedButton.icon(
-                onPressed: _resetGame,
-                icon: const Icon(Icons.refresh),
-                label: const Text('إعادة تعيين اللعبة'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Game Message
-              if (gameService.gameMessage != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Text(
-                    gameService.gameMessage!,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${gameService.teams.length} فرق',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
-                    textAlign: TextAlign.center,
+                  ],
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Teams grid
+                Expanded(
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 6,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.8,
+                    ),
+                    itemCount: gameService.teams.length,
+                    itemBuilder: (context, index) {
+                      final team = gameService.teams[index];
+                      return _buildTeamQuickCard(context, team);
+                    },
                   ),
                 ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => gameService.clearMessage(),
-                  child: const Text('مسح الرسالة'),
+                
+                const SizedBox(height: 12),
+                
+                // Quick actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildQuickActionButton(
+                        context: context,
+                        icon: Icons.refresh,
+                        label: 'إعادة تعيين',
+                        color: Colors.orange,
+                        onTap: () => _showResetConfirmation(context, gameService),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildQuickActionButton(
+                        context: context,
+                        icon: Icons.camera_alt,
+                        label: 'إدارة الصور',
+                        color: Colors.blue,
+                        onTap: () => _showImageManagementPanel(context, gameService),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ],
+            ),
           ),
         );
       },
     );
   }
 
-  void _showTeamMenu(BuildContext context, team) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return TeamMenuSheet(team: team);
-      },
-    );
-  }
-
-  void _resetGame() {
-    final gameService = Provider.of<GameService>(context, listen: false);
-    gameService.resetGame();
-  }
-}
-
-class TeamCircle extends StatelessWidget {
-  final team;
-  final currentSquare;
-
-  const TeamCircle({
-    super.key,
-    required this.team,
-    required this.currentSquare,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: team.color,
-        border: Border.all(color: Colors.white, width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            spreadRadius: 2,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipOval(
-        child: team.imagePath != null && File(team.imagePath!).existsSync()
-            ? Image.file(
-                File(team.imagePath!),
-                fit: BoxFit.cover,
-              )
-            : Icon(
-                team.icon,
-                size: 40,
-                color: Colors.white,
-              ),
-      ),
-    );
-  }
-}
-
-class TeamMenuSheet extends StatefulWidget {
-  final team;
-
-  const TeamMenuSheet({super.key, required this.team});
-
-  @override
-  State<TeamMenuSheet> createState() => _TeamMenuSheetState();
-}
-
-class _TeamMenuSheetState extends State<TeamMenuSheet> {
-  final TextEditingController stepsController = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
-
-  @override
-  void dispose() {
-    stepsController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+  /// بناء بطاقة فريق سريعة
+  Widget _buildTeamQuickCard(BuildContext context, Team team) {
+    return GestureDetector(
+      onTap: () => _showQuickTeamActions(context, team),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: team.color.withOpacity(0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Handle bar
+            // Team image/icon
             Container(
-              width: 40,
-              height: 4,
+              width: 35,
+              height: 35,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+                color: team.color,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: ClipOval(
+                child: team.imagePath != null
+                    ? Image.file(
+                        File(team.imagePath!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 20,
+                          );
+                        },
+                      )
+                    : Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 20,
+                      ),
               ),
             ),
-            const SizedBox(height: 20),
-
-            // Team Info
-            Row(
-              children: [
-                TeamCircle(
-                  team: widget.team,
-                  currentSquare: Provider.of<GameService>(context, listen: false).getSquare(widget.team.position),
+            
+            const SizedBox(height: 6),
+            
+            // Team name (abbreviated)
+            Text(
+              team.name.split(' ').last, // Show last word of team name
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            
+            // Position indicator
+            Text(
+              'الموقع ${team.position}',
+              style: TextStyle(
+                fontSize: 8,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            
+            // Custom image indicator
+            if (team.imagePath != null)
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.team.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'الموقع الحالي: ${Provider.of<GameService>(context, listen: false).getSquare(widget.team.position).name}',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        'المربع: ${widget.team.position}',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+                child: Text(
+                  'صورة',
+                  style: TextStyle(
+                    fontSize: 6,
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 30),
-
-            // Add Image Section
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    'تخصيص الصورة',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _pickImage,
-                          icon: const Icon(Icons.camera_alt),
-                          label: const Text('اختر صورة'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: widget.team.color,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _removeImage,
-                          icon: const Icon(Icons.delete),
-                          label: const Text('إزالة الصورة'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Move Team Section
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue[200]!),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'تحريك الفريق',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue[700],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: stepsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: 'عدد الخطوات',
-                      hintText: 'أدخل عدد الخطوات',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _moveTeam,
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('تحرك'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _pickImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
-        final gameService = Provider.of<GameService>(context, listen: false);
-        gameService.updateTeamImage(widget.team.id, image.path);
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم تحديث صورة الفريق بنجاح')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('خطأ في اختيار الصورة')),
-      );
-    }
-  }
-
-  void _removeImage() {
-    final gameService = Provider.of<GameService>(context, listen: false);
-    gameService.updateTeamImage(widget.team.id, null);
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم إزالة صورة الفريق')),
+  /// بناء زر إجراء سريع
+  Widget _buildQuickActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      height: 35,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.8), color],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
-  void _moveTeam() {
-    final steps = int.tryParse(stepsController.text);
-    if (steps != null && steps > 0) {
-      final gameService = Provider.of<GameService>(context, listen: false);
-      gameService.moveTeam(widget.team.id, steps);
-      Navigator.of(context).pop();
-    } else {
+  /// عرض إجراءات الفريق السريعة
+  void _showQuickTeamActions(BuildContext context, Team team) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(team.name),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Team image preview
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: team.color,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 3),
+              ),
+              child: ClipOval(
+                child: team.imagePath != null
+                    ? Image.file(
+                        File(team.imagePath!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 40,
+                          );
+                        },
+                      )
+                    : Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            Text('الموقع الحالي: ${team.position}'),
+            
+            const SizedBox(height: 16),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showImageSelectionForTeam(context, team);
+            },
+            child: const Text('تغيير الصورة'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// اختيار صورة للفريق من اللوحة
+  void _showImageSelectionForTeam(BuildContext context, Team team) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'اختيار صورة لـ ${team.name}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Camera option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.camera_alt, color: Colors.green.shade700),
+              ),
+              title: const Text('الكاميرا'),
+              subtitle: const Text('التقط صورة جديدة'),
+              onTap: () {
+                Navigator.pop(context);
+                _handleQuickImageSelection(context, team, ImageSource.camera);
+              },
+            ),
+            
+            // Gallery option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.photo_library, color: Colors.blue.shade700),
+              ),
+              title: const Text('المعرض'),
+              subtitle: const Text('اختر من الصور المحفوظة'),
+              onTap: () {
+                Navigator.pop(context);
+                _handleQuickImageSelection(context, team, ImageSource.gallery);
+              },
+            ),
+            
+            // Remove option (only if image exists)
+            if (team.imagePath != null)
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.delete, color: Colors.red.shade700),
+                ),
+                title: const Text('حذف الصورة'),
+                subtitle: const Text('العودة للأيقونة الافتراضية'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleImageRemoval(context, team);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// معالجة اختيار الصورة السريع
+  Future<void> _handleQuickImageSelection(BuildContext context, Team team, ImageSource source) async {
+    // عرض مؤشر التحميل
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Expanded(child: Text('جاري معالجة الصورة...')),
+          ],
+        ),
+      ),
+    );
+    
+    try {
+      final result = await ImageService.pickAndSaveTeamImage(source, team.id);
+      
+      // إخفاء مؤشر التحميل
+      Navigator.pop(context);
+      
+      if (result.isSuccess && result.imagePath != null) {
+        // تحديث صورة الفريق
+        final gameService = Provider.of<GameService>(context, listen: false);
+        await gameService.updateTeamImageWithCleanup(team.id, result.imagePath);
+        
+        // عرض رسالة نجاح
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم تحديث الصورة بنجاح'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+      } else if (!result.isCancelled) {
+        // عرض رسالة خطأ
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.errorMessage ?? 'حدث خطأ غير متوقع'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      
+    } catch (e) {
+      // إخفاء مؤشر التحميل
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى إدخال رقم صحيح أكبر من 0')),
+        const SnackBar(
+          content: Text('حدث خطأ أثناء معالجة الصورة'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
+  }
+
+  /// معالجة حذف الصورة
+  Future<void> _handleImageRemoval(BuildContext context, Team team) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تأكيد الحذف'),
+        content: const Text('هل تريد حذف الصورة الحالية؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      try {
+        final gameService = Provider.of<GameService>(context, listen: false);
+        await ImageService.deleteTeamImage(team.id);
+        await gameService.updateTeamImageWithCleanup(team.id, null);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم حذف الصورة بنجاح'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('حدث خطأ أثناء حذف الصورة'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// عرض تأكيد إعادة التعيين
+  void _showResetConfirmation(BuildContext context, GameService gameService) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('إعادة تعيين اللعبة'),
+        content: const Text('هل تريد إعادة تعيين مواقع جميع الفرق إلى البداية؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              gameService.resetGame();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('تم إعادة تعيين اللعبة'),
+                  backgroundColor: Colors.blue,
+                ),
+              );
+            },
+            child: const Text('إعادة تعيين'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// عرض لوحة إدارة الصور
+  void _showImageManagementPanel(BuildContext context, GameService gameService) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('إدارة صور الفرق'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: ListView.builder(
+            itemCount: gameService.teams.length,
+            itemBuilder: (context, index) {
+              final team = gameService.teams[index];
+              return ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: team.color,
+                    shape: BoxShape.circle,
+                  ),
+                  child: ClipOval(
+                    child: team.imagePath != null
+                        ? Image.file(
+                            File(team.imagePath!),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Icon(Icons.person, color: Colors.white, size: 20);
+                            },
+                          )
+                        : Icon(Icons.person, color: Colors.white, size: 20),
+                  ),
+                ),
+                title: Text(team.name),
+                subtitle: Text(team.imagePath != null ? 'صورة مخصصة' : 'صورة افتراضية'),
+                trailing: team.imagePath != null
+                    ? IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _handleImageRemoval(context, team),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.add_a_photo, color: Colors.blue),
+                        onPressed: () => _showImageSelectionForTeam(context, team),
+                      ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
   }
 } 

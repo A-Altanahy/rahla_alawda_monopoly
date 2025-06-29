@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class Team {
   final int id;
-  final String name;
+  String name;
   final IconData icon;
   final Color color;
   int position;
@@ -18,7 +18,7 @@ class Team {
   });
 
   void moveBy(int steps, int boardSize) {
-    position = (position + steps) % boardSize;
+    position = ((position + steps) % boardSize + boardSize) % boardSize;
   }
 
   void moveTo(int newPosition) {
