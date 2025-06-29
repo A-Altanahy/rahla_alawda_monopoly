@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/game_square.dart';
 import '../models/team.dart';
 import '../services/game_service.dart';
-import '../services/image_service.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'dart:math';
@@ -132,9 +130,25 @@ class BoardWidget extends StatelessWidget {
     final squarePosition = _getSquarePositionOnImage(position, boardSize);
     final teamCircleSize = boardSize * 0.045; // Bigger circles for better visibility
 
+    // Add offsets for specific rows to improve circle positioning
+    double topOffset = squarePosition.dy - (teamCircleSize * 1.5);
+    double leftOffset = squarePosition.dx - (teamCircleSize * 1.5);
+    
+    if (position >= 21 && position <= 29) {
+      // Top row: move down and slightly right
+      topOffset += teamCircleSize * 1.0; // Move circles down by 100% of circle size
+      leftOffset += teamCircleSize * 0.12; // Move circles right by 12% of circle size
+    } else if (position >= 11 && position <= 19) {
+      // Left side: move slightly right
+      leftOffset += teamCircleSize * 0.3; // Move circles right by 12% of circle size
+    } else if (position >= 1 && position <= 9) {
+      // Left side: move slightly right
+      leftOffset += teamCircleSize * 0.1; // Move circles right by 12% of circle size
+    }
+
     return Positioned(
-      left: squarePosition.dx - (teamCircleSize * 1.5),
-      top: squarePosition.dy - (teamCircleSize * 1.5),
+      left: leftOffset,
+      top: topOffset,
       child: SizedBox(
         width: teamCircleSize * 3,
         height: teamCircleSize * 3,
