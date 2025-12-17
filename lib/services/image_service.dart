@@ -113,6 +113,73 @@ class ImageService {
     }
   }
 
+  /// اختيار وحفظ صورة للوحة اللعبة
+  static Future<ImageResult> pickAndSaveBoardImage(
+    ImageSource source, {
+    int maxWidth = 1024,
+    int maxHeight = 1024,
+    int imageQuality = 90,
+  }) async {
+    try {
+      // التحقق من الصلاحيات
+      final hasPermission = await requestPermissions(source);
+      if (!hasPermission) {
+        return ImageResult.error('لا توجد صلاحيات للوصول إلى ${source == ImageSource.camera ? 'الكاميرا' : 'المعرض'}');
+      }
+
+      // اختيار الصورة
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        maxWidth: maxWidth.toDouble(),
+        maxHeight: maxHeight.toDouble(),
+        imageQuality: imageQuality,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+
+      if (image == null) {
+        return ImageResult.cancelled();
+      }
+
+      // التحقق من حجم الملف
+      final fileSize = await File(image.path).length();
+      if (fileSize > 15 * 1024 * 1024) { // 15 MB for board images
+        return ImageResult.error('حجم الصورة كبير جداً. يرجى اختيار صورة أصغر من 15 ميجابايت');
+      }
+
+      // إنشاء مجلد صور اللوحة
+      final appDir = await getApplicationDocumentsDirectory();
+      final boardImagesDir = Directory(path.join(appDir.path, 'board_images'));
+      
+      if (!await boardImagesDir.exists()) {
+        await boardImagesDir.create(recursive: true);
+      }
+
+      // حذف الصورة القديمة إن وجدت
+      await _deleteOldBoardImage(boardImagesDir);
+
+      // إنشاء اسم ملف جديد للوحة
+      final extension = path.extension(image.path);
+      final newFileName = 'custom_board$extension';
+      final newPath = path.join(boardImagesDir.path, newFileName);
+
+      // نسخ الملف إلى المكان الدائم
+      final sourceFile = File(image.path);
+      final newFile = await sourceFile.copy(newPath);
+      
+      // التحقق من نجح النسخ
+      if (!await newFile.exists()) {
+        return ImageResult.error('فشل في حفظ الصورة');
+      }
+
+      print('تم حفظ صورة اللوحة إلى: ${newFile.path}');
+      return ImageResult.success(newFile.path);
+
+    } catch (e) {
+      print('خطأ في اختيار وحفظ صورة اللوحة: $e');
+      return ImageResult.error('حدث خطأ أثناء معالجة الصورة: ${e.toString()}');
+    }
+  }
+
   /// حذف صورة الفريق القديمة
   static Future<void> _deleteOldTeamImage(int teamId, Directory teamImagesDir) async {
     try {
@@ -125,6 +192,21 @@ class ImageService {
       }
     } catch (e) {
       print('خطأ في حذف الصورة القديمة: $e');
+    }
+  }
+
+  /// حذف صورة اللوحة القديمة
+  static Future<void> _deleteOldBoardImage(Directory boardImagesDir) async {
+    try {
+      final files = await boardImagesDir.list().toList();
+      for (final file in files) {
+        if (file is File && path.basename(file.path).startsWith('custom_board')) {
+          await file.delete();
+          print('تم حذف صورة اللوحة القديمة: ${file.path}');
+        }
+      }
+    } catch (e) {
+      print('خطأ في حذف صورة اللوحة القديمة: $e');
     }
   }
 
@@ -142,6 +224,24 @@ class ImageService {
       return true;
     } catch (e) {
       print('خطأ في حذف صورة الفريق: $e');
+      return false;
+    }
+  }
+
+  /// حذف صورة اللوحة المخصصة
+  static Future<bool> deleteBoardImage() async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final boardImagesDir = Directory(path.join(appDir.path, 'board_images'));
+      
+      if (!await boardImagesDir.exists()) {
+        return true; // المجلد غير موجود، لا توجد صور للحذف
+      }
+
+      await _deleteOldBoardImage(boardImagesDir);
+      return true;
+    } catch (e) {
+      print('خطأ في حذف صورة اللوحة: $e');
       return false;
     }
   }
@@ -171,6 +271,24 @@ class ImageService {
       final files = await teamImagesDir.list().toList();
       return files.any((file) => 
         file is File && path.basename(file.path).startsWith('team_${teamId}_image'));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// التحقق من وجود صورة للوحة المخصصة
+  static Future<bool> hasBoardImage() async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final boardImagesDir = Directory(path.join(appDir.path, 'board_images'));
+      
+      if (!await boardImagesDir.exists()) {
+        return false;
+      }
+
+      final files = await boardImagesDir.list().toList();
+      return files.any((file) => 
+        file is File && path.basename(file.path).startsWith('custom_board'));
     } catch (e) {
       return false;
     }

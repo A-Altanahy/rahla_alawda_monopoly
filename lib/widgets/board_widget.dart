@@ -44,26 +44,56 @@ class BoardWidget extends StatelessWidget {
                         // Board background image
                         ClipRRect(
                           borderRadius: BorderRadius.circular(4),
-                          child: Image.asset(
-                            'assets/images/board.jpg',
-                            width: boardSize,
-                            height: boardSize,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: boardSize,
-                                height: boardSize,
-                                color: Colors.grey.shade300,
-                                child: const Center(
-                                  child: Text(
-                                    'Board image not found\nPlease ensure board.jpg is in assets/images/',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 16),
-                                  ),
+                          child: gameService.hasCustomBoardImage
+                              ? Image.file(
+                                  File(gameService.customBoardImagePath!),
+                                  width: boardSize,
+                                  height: boardSize,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    // Fall back to default asset if custom image fails
+                                    return Image.asset(
+                                      'assets/images/board.jpg',
+                                      width: boardSize,
+                                      height: boardSize,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          width: boardSize,
+                                          height: boardSize,
+                                          color: Colors.grey.shade300,
+                                          child: const Center(
+                                            child: Text(
+                                              'Board image not found\nPlease ensure board.jpg is in assets/images/',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(fontSize: 16),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                )
+                              : Image.asset(
+                                  'assets/images/board.jpg',
+                                  width: boardSize,
+                                  height: boardSize,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      width: boardSize,
+                                      height: boardSize,
+                                      color: Colors.grey.shade300,
+                                      child: const Center(
+                                        child: Text(
+                                          'Board image not found\nPlease ensure board.jpg is in assets/images/',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
                         ),
 
                         // Team circles overlay

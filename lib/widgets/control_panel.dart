@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/team.dart';
 import '../services/game_service.dart';
 import '../services/image_service.dart';
+import 'save_dialog.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 
@@ -95,6 +96,16 @@ class ControlPanel extends StatelessWidget {
                 // Quick actions
                 Row(
                   children: [
+                    Expanded(
+                      child: _buildQuickActionButton(
+                        context: context,
+                        icon: Icons.save,
+                        label: 'حفظ اللعبة',
+                        color: Colors.green,
+                        onTap: () => _showSaveDialog(context),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: _buildQuickActionButton(
                         context: context,
@@ -599,5 +610,10 @@ class ControlPanel extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// عرض حوار حفظ اللعبة
+  void _showSaveDialog(BuildContext context) {
+    showSaveDialog(context);
   }
 } 

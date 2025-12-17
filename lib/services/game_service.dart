@@ -3,11 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/game_square.dart';
 import '../models/team.dart';
+import 'save_service.dart';
+import 'image_service.dart';
 
 class GameService extends ChangeNotifier {
   List<Team> _teams = [];
   List<GameSquare> _boardSquares = [];
   String? _gameMessage;
+  String? _customBoardImagePath; // Add custom board image path
 
   GameService() {
     _initializeGame();
@@ -359,6 +362,48 @@ class GameService extends ChangeNotifier {
     return _teams[teamId].imagePath != null;
   }
 
+  /// تحديث صورة اللوحة المخصصة
+  Future<bool> updateBoardImage(String? imagePath) async {
+    try {
+      // حذف الصورة القديمة إذا كانت موجودة
+      if (_customBoardImagePath != null) {
+        final oldFile = File(_customBoardImagePath!);
+        if (await oldFile.exists()) {
+          await oldFile.delete();
+        }
+      }
+      
+      _customBoardImagePath = imagePath;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('خطأ في تحديث صورة اللوحة: $e');
+      return false;
+    }
+  }
+
+  /// الحصول على مسار صورة اللوحة المخصصة
+  String? get customBoardImagePath => _customBoardImagePath;
+
+  /// التحقق من وجود صورة لوحة مخصصة
+  bool get hasCustomBoardImage => _customBoardImagePath != null;
+
+  /// إعادة تعيين صورة اللوحة للافتراضية
+  Future<bool> resetBoardImage() async {
+    try {
+      // حذف الصورة من الملفات
+      await ImageService.deleteBoardImage();
+      
+      // تحديث المسار إلى null
+      _customBoardImagePath = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('خطأ في إعادة تعيين صورة اللوحة: $e');
+      return false;
+    }
+  }
+
   void updateTeamName(int teamId, String newName) {
     if (teamId >= 0 && teamId < _teams.length && newName.isNotEmpty) {
       _teams[teamId].name = newName;
@@ -391,5 +436,71 @@ class GameService extends ChangeNotifier {
   void clearMessage() {
     _gameMessage = null;
     notifyListeners();
+  }
+
+  // Save/Load functionality
+  Future<void> saveGame(String name) async {
+    try {
+      await SaveService.saveGame(name: name, teams: _teams, boardImagePath: _customBoardImagePath);
+      _gameMessage = "تم حفظ اللعبة: $name";
+      notifyListeners();
+    } catch (e) {
+      _gameMessage = "فشل في حفظ اللعبة: $e";
+      notifyListeners();
+    }
+  }
+
+  Future<bool> loadGame(String saveId) async {
+    try {
+      final gameSave = await SaveService.getSaveById(saveId);
+      if (gameSave == null) {
+        _gameMessage = "لم يتم العثور على اللعبة المحفوظة";
+        notifyListeners();
+        return false;
+      }
+
+      // Restore teams with saved data
+      for (int i = 0; i < _teams.length && i < gameSave.teams.length; i++) {
+        final savedTeam = gameSave.teams[i];
+        _teams[i].name = savedTeam.name;
+        _teams[i].position = savedTeam.position;
+        _teams[i].imagePath = savedTeam.imagePath;
+      }
+
+      // Restore board image path
+      _customBoardImagePath = gameSave.boardImagePath;
+
+      _gameMessage = "تم تحميل اللعبة: ${gameSave.name}";
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _gameMessage = "فشل في تحميل اللعبة: $e";
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> loadLastGame() async {
+    try {
+      final lastSave = await SaveService.getLastSave();
+      if (lastSave == null) return false;
+      
+      return await loadGame(lastSave.id);
+    } catch (e) {
+      print('Error loading last game: $e');
+      return false;
+    }
+  }
+
+  Future<List<GameSave>> getSavedGames() async {
+    return await SaveService.getAllSaves();
+  }
+
+  Future<void> deleteSavedGame(String saveId) async {
+    await SaveService.deleteSave(saveId);
+  }
+
+  static Future<bool> hasSavedGames() async {
+    return await SaveService.hasSavedGames();
   }
 }
